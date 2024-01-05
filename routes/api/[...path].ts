@@ -16,6 +16,7 @@ import { isoBase64URL } from "$simplewebauthn/server/helpers.ts";
 import { cert, initializeApp } from "npm:firebase-admin@12.0.0/app";
 import { getAuth } from "npm:firebase-admin@12.0.0/auth";
 import { Database } from "../../backend/db.ts";
+import { decode, verify } from "https://deno.land/x/djwt@v3.0.1/mod.ts";
 
 // Human-readable title for your website
 const rpName = "pass key memo";
@@ -271,7 +272,46 @@ const route = app
 
       console.log("jwt:", authorization.slice("Bearer ".length));
 
-      const { uid } = await getAuth().verifyIdToken(
+      const auth = getAuth();
+      console.log("aaaa", auth.idTokenVerifier.verifySignature);
+      auth.idTokenVerifier.verifySignature = async (jwt) => {
+        console.log(jwt);
+        const [header, _payload, _signature] = decode(jwt);
+        const publicKeys = await getFirebasePublicKeys();
+        if (
+          !header || typeof header !== "object" || !("kid" in header) ||
+          typeof header.kid !== "string"
+        ) {
+          throw new Error("invalid jwt (kid header not found.)");
+        }
+        const publicKey = publicKeys[header.kid];
+        console.log(publicKey);
+        if (!publicKey) {
+          throw new Error("invalid jwt (public key not found.)");
+        }
+
+        console.log(publicKey.split("\n").slice(1, -2));
+
+        const cryptoKey = await crypto.subtle.importKey(
+          "pkcs8",
+          Uint8Array.from(
+            atob(publicKey.split("\n").slice(1, -2).join("")),
+            (c) => c.charCodeAt(0),
+          ),
+          {
+            name: "RSASSA-PKCS1-v1_5",
+            hash: "SHA-256",
+          },
+          true,
+          ["verify"],
+        );
+
+        console.log(cryptoKey);
+
+        await verify(jwt, cryptoKey);
+        // throw new Error("wwwww");
+      };
+      const { uid } = await auth.verifyIdToken(
         authorization.slice("Bearer ".length),
       );
 
@@ -294,5 +334,23 @@ const route = app
     },
   );
 
+let publicKeys: Promise<Record<string, string>> | undefined;
+function getFirebasePublicKeys() {
+  return publicKeys ??= getFirebasePublicKeysInternal();
+}
+async function getFirebasePublicKeysInternal(): Promise<
+  Record<string, string>
+> {
+  const res = await fetch(
+    "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
+  );
+  const cacheControl = res.headers.get("cache-control");
+  const maxAge = cacheControl?.match(/max-age=(\d+)/)?.[1];
+  console.log({ maxAge });
+  Deno.unrefTimer(setTimeout(() => {
+    publicKeys = undefined;
+  }, +(maxAge ?? 60) * 1000));
+  return await res.json();
+}
 export const handler: Handler = (req) => app.fetch(req);
 export type AppType = typeof route; // rpcモードを使用するときはこのAppTypeをexportする
