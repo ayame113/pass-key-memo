@@ -130,7 +130,13 @@ export class Database {
 
     const challengeId = crypto.randomUUID();
 
-    const result = await kv.set(["auth", "challenges", challengeId], challenge);
+    const result = await kv.set(
+      ["auth", "challenges", challengeId],
+      challenge,
+      {
+        expireIn: Date.now() + 5 * 60 * 1000,
+      },
+    );
     assert(result.ok, "Failed to set challenge");
 
     return { challengeId, challenge };
