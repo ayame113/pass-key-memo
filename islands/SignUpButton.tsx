@@ -1,4 +1,4 @@
-import { signUp } from "../signals/auth.ts";
+import { signUp } from "../frontend/signals/auth.ts";
 import { useSignal } from "@preact/signals";
 
 export function SignUpButton() {

@@ -17,5 +17,8 @@
   "css.customData": [
     ".vscode/tailwind.json"
   ],
-  "deno.unstable": true
+  "deno.unstable": true,
+  "cSpell.words": [
+    "simplewebauthn"
+  ]
 }

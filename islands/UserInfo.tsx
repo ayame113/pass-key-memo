@@ -1,11 +1,21 @@
-import { userInfo } from "../signals/auth.ts";
+import { userInfo } from "../frontend/signals/auth.ts";
+import { SignInButton } from "./SignInButton.tsx";
+import { SignUpButton } from "./SignUpButton.tsx";
+import { RegisterAuthenticatorButton } from "./RegisterAuthenticatorButton.tsx";
+import { SignOutButton } from "./SignOutButton.tsx";
 
 export function UserInfo() {
   if (userInfo.value === undefined) {
     return <div>loading...</div>;
   }
   if (userInfo.value === null) {
-    return <div>not signed in</div>;
+    return (
+      <div>
+        not signed in
+        <SignUpButton />
+        <SignInButton />
+      </div>
+    );
   }
   const { userInfo: { id, name }, authenticators } = userInfo.value;
   return (
@@ -30,6 +40,8 @@ export function UserInfo() {
           </tr>
         ))}
       </table>
+      <RegisterAuthenticatorButton />
+      <SignOutButton />
     </div>
   );
 }

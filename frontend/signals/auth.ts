@@ -4,12 +4,13 @@ import {
 } from "$simplewebauthn/browser";
 import { effect, signal } from "@preact/signals";
 import {
+  createUser,
   generateAuthenticationOptions,
   generateRegistrationOptions,
   getUserInfo,
   verifyAuthentication,
   verifyRegistration,
-} from "../api/client.ts";
+} from "../client.ts";
 import {
   auth,
   onAuthStateChanged,
@@ -43,45 +44,6 @@ effect(async () => {
 
   userInfo.value = await getUserInfo();
 });
-
-// create account
-export async function signUp({ userName }: { userName: string }) {
-  // GET registration options from the endpoint that calls
-  // @simplewebauthn/server -> generateRegistrationOptions()
-  const { registrationOptions, challengeId } =
-    await generateRegistrationOptions({ userName });
-
-  let registrationResponse;
-  try {
-    // Pass the options to the authenticator and wait for a response
-    registrationResponse = await startRegistration(registrationOptions);
-  } catch (error) {
-    console.error(error);
-    return { verified: false, message: "Failed to Register" + error };
-  }
-
-  // POST the response to the endpoint that calls
-  // @simplewebauthn/server -> verifyRegistrationResponse()
-
-  // Wait for the results of verification
-  const verificationResult = await verifyRegistration({
-    userId: registrationOptions.user.id,
-    registrationResponse,
-    challengeId,
-  });
-
-  // Show UI appropriate for the `verified` status
-  if (verificationResult.verified) {
-    const user = await signInWithCustomToken(
-      auth,
-      verificationResult.firebaseCustomToken,
-    );
-    console.log(user.user.displayName);
-    return { verified: true, message: "Successfully registered!" };
-  } else {
-    return { verified: false, message: "Failed to Verification" };
-  }
-}
 
 export async function signIn() {
   // GET authentication options from the endpoint that calls
@@ -118,10 +80,60 @@ export async function signIn() {
 
     return {
       verified: true,
-      userName: verificationResult.user.name,
       message: "Successfully authenticated!",
     };
   } else {
     return { verified: false, message: "Failed to Verification" };
   }
+}
+
+// create account
+export async function signUp({ userName }: { userName: string }) {
+  // 1. ユーザーを作成
+  const { firebaseCustomToken } = await createUser({ userName });
+  await signInWithCustomToken(
+    auth,
+    firebaseCustomToken,
+  );
+
+  // 2. 認証器を登録
+  const verificationResult = await registerAuthenticator();
+
+  if (verificationResult.verified) {
+    return { verified: true, message: "Successfully registered!" };
+  } else {
+    return { verified: false, message: "Failed to Verification" };
+  }
+}
+
+/** 認証器を新規登録する */
+export async function registerAuthenticator() {
+  // GET registration options from the endpoint that calls
+  // @simplewebauthn/server -> generateRegistrationOptions()
+  const {
+    registrationOptions,
+    challengeId,
+  } = await generateRegistrationOptions();
+
+  let registrationResponse;
+  try {
+    // Pass the options to the authenticator and wait for a response
+    registrationResponse = await startRegistration(registrationOptions);
+  } catch (error) {
+    console.error(error);
+    return { verified: false, message: "Failed to Register" + error };
+  }
+
+  // POST the response to the endpoint that calls
+  // @simplewebauthn/server -> verifyRegistrationResponse()
+
+  // Wait for the results of verification
+  return await verifyRegistration({
+    registrationResponse,
+    challengeId,
+  });
+}
+
+export async function signOut() {
+  await auth.signOut();
 }

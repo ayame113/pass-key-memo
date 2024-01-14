@@ -1,5 +1,6 @@
+import { assert } from "$std/assert/assert.ts";
 import { Handler } from "$fresh/server.ts";
-import { Hono, validator } from "$hono/mod.ts";
+import { Context, Hono, validator } from "$hono/mod.ts";
 import { z } from "$zod/mod.ts";
 import {
   generateAuthenticationOptions,
@@ -14,9 +15,8 @@ import {
 } from "$simplewebauthn/typescript-types.ts";
 import { isoBase64URL } from "$simplewebauthn/server/helpers.ts";
 import { cert, initializeApp } from "npm:firebase-admin@12.0.0/app";
-import { getAuth } from "npm:firebase-admin@12.0.0/auth";
 import { Database } from "../../backend/db.ts";
-import { decode, verify } from "https://deno.land/x/djwt@v3.0.1/mod.ts";
+import { getFirebaseToken, verifyFirebaseToken } from "../../backend/auth.ts";
 
 // Human-readable title for your website
 const rpName = "pass key memo";
@@ -25,11 +25,20 @@ const rpID = Deno.env.get("DENO_DEPLOYMENT_ID")
   ? "pass-key-memo.deno.dev"
   : "localhost";
 // The URL at which registrations and authentications should occur
-const origin = ["http://localhost:8001", `https://${rpID}`];
+const origin = [
+  "http://localhost:8000",
+  "http://localhost:8001",
+  `https://${rpID}`,
+];
+
 const db = new Database();
+
+const FIREBASE_PROJECT_ID = Deno.env.get("FIREBASE_PROJECT_ID");
+assert(FIREBASE_PROJECT_ID, "FIREBASE_PROJECT_ID is undefined");
+
 initializeApp({
   credential: cert({
-    projectId: Deno.env.get("FIREBASE_PROJECT_ID"),
+    projectId: FIREBASE_PROJECT_ID,
     clientEmail: Deno.env.get("FIREBASE_CLIENT_EMAIL"),
     privateKey: Deno.env.get("FIREBASE_PRIVATE_KEY"),
   }),
@@ -40,33 +49,46 @@ const app = new Hono().basePath("/api");
 // ルーティングの設定
 const route = app
   .post(
-    "/generate_registration_options",
-    validator("json", (value, c) => {
-      const schema = z.object({
+    "/create_user",
+    validator(
+      "json",
+      parse(z.object({
         userName: z.string().min(1).max(255),
-      });
-      const parsed = schema.safeParse(value);
-      if (!parsed.success) {
-        return c.text("invalid body", 400);
-      }
-      return parsed.data;
-    }),
+      })),
+    ),
     async (c) => {
       const body = c.req.valid("json");
 
-      // (Pseudocode) Retrieve the user from the database
-      // after they've logged in
+      // ユーザーを新規作成
       const user = await db.createUser(body.userName);
-      // (Pseudocode) Retrieve any of the user's previously-
-      // registered authenticators
-      const userAuthenticators = await db.getUserAuthenticators(user.id);
 
+      // firebaseのidTokenを発行して返す
+      const firebaseCustomToken = await getFirebaseToken(user.id);
+
+      return c.json({ firebaseCustomToken });
+    },
+  )
+  .post(
+    "/generate_registration_options",
+    validator("header", parse(z.object({ authorization: z.string() }))),
+    async (c) => {
+      const { uid } = await verifyFirebaseToken(c.req.valid("header"), {
+        projectId: FIREBASE_PROJECT_ID,
+      });
+
+      // ユーザー情報を取得
+      const [user, userAuthenticators] = await Promise.all([
+        db.getUser(uid),
+        db.getUserAuthenticators(uid),
+      ]);
+
+      // registration optionを生成
       const options = await generateRegistrationOptions({
         rpName,
         rpID,
-        userID: user.id,
-        userName: `${body.userName}-${Math.random().toString(36).slice(-8)}`,
-        userDisplayName: body.userName,
+        userID: uid,
+        userName: `${user.name}-${Math.random().toString(36).slice(-8)}`,
+        userDisplayName: user.name,
         // Don't prompt users for additional information about the authenticator
         // (Recommended for smoother UX)
         attestationType: "none",
@@ -86,7 +108,7 @@ const route = app
         },
       });
 
-      // (Pseudocode) Remember the challenge for this user
+      // 生成されたchallengeを記録
       const { challengeId } = await db.rememberChallenge(options.challenge);
 
       await db.logAllUsers();
@@ -96,27 +118,23 @@ const route = app
   )
   .post(
     "/verify_registration",
-    validator("json", (value, c) => {
-      const schema = z.object({
-        userId: z.string().min(1).max(255),
+    validator("header", parse(z.object({ authorization: z.string() }))),
+    validator(
+      "json",
+      parse(z.object({
         challengeId: z.string(),
-        registrationResponse: z.record(z.unknown()),
-      });
-      const parsed = schema.safeParse(value);
-      if (!parsed.success) {
-        return c.text("invalid body", 400);
-      }
-
-      return {
-        userId: parsed.data.userId,
-        challengeId: parsed.data.challengeId,
-        registrationResponse: parsed.data
-          .registrationResponse as unknown as RegistrationResponseJSON,
-      };
-    }),
+        registrationResponse: z.custom<RegistrationResponseJSON>((value) =>
+          z.record(z.unknown()).safeParse(value).success
+        ),
+      })),
+    ),
     async (c) => {
-      const { userId, challengeId, registrationResponse } = c.req.valid("json");
+      const { uid } = await verifyFirebaseToken(c.req.valid("header"), {
+        projectId: FIREBASE_PROJECT_ID,
+      });
+      const { challengeId, registrationResponse } = c.req.valid("json");
 
+      // 認証器情報を検証
       let verification;
       try {
         verification = await verifyRegistrationResponse({
@@ -141,7 +159,7 @@ const route = app
         return c.json({ verified: false } as const);
       }
 
-      await db.saveUserAuthenticator(userId, {
+      await db.saveUserAuthenticator(uid, {
         credentialID: registrationInfo.credentialID,
         credentialPublicKey: registrationInfo.credentialPublicKey,
         counter: registrationInfo.counter,
@@ -152,22 +170,17 @@ const route = app
 
       await db.logAllUsers();
 
-      const user = await db.getUser(userId);
-
-      const firebaseCustomToken = await getAuth().createCustomToken(
-        userId,
-      );
-
-      return c.json({ verified: true, user, firebaseCustomToken } as const);
+      return c.json({ verified: true } as const);
     },
   )
   .post("/generate_authentication_options", async (c) => {
+    // authentication optionを生成
     const options = await generateAuthenticationOptions({
       rpID,
       userVerification: "preferred",
     });
 
-    // (Pseudocode) Remember this challenge for this user
+    // challengeを記録
     const { challengeId } = await db.rememberChallenge(options.challenge);
 
     await db.logAllUsers();
@@ -176,22 +189,15 @@ const route = app
   })
   .post(
     "/verify_authentication",
-    validator("json", (value, c) => {
-      const schema = z.object({
+    validator(
+      "json",
+      parse(z.object({
         challengeId: z.string(),
-        authenticationResponse: z.record(z.unknown()),
-      });
-      const parsed = schema.safeParse(value);
-      if (!parsed.success) {
-        return c.text("invalid body", 400);
-      }
-
-      return {
-        challengeId: parsed.data.challengeId,
-        authenticationResponse: parsed.data
-          .authenticationResponse as unknown as AuthenticationResponseJSON,
-      };
-    }),
+        authenticationResponse: z.custom<AuthenticationResponseJSON>((value) =>
+          z.record(z.unknown()).safeParse(value).success
+        ),
+      })),
+    ),
     async (c) => {
       const { authenticationResponse, challengeId } = c.req.valid("json");
       const { userHandle } = authenticationResponse.response;
@@ -201,13 +207,13 @@ const route = app
         return c.json({ verified: false } as const);
       }
 
-      // (Pseudocode} Retrieve an authenticator from the DB that
-      // should match the `id` in the returned credential
+      // 認証器情報を取得
       const authenticator = await db.getUserAuthenticator(
         userHandle,
         authenticationResponse.id,
       );
 
+      // 認証器情報を検証
       let verification: VerifiedAuthenticationResponse;
       try {
         verification = await verifyAuthenticationResponse({
@@ -226,11 +232,13 @@ const route = app
         return c.json({ verified: false } as const);
       }
 
+      // 検証が成功しなければ401を返す
       if (!verification.verified) {
         c.status(401);
         return c.json({ verified: false } as const);
       }
 
+      // 認証器のcounter情報を更新
       await db.updateUserAuthenticatorCounter(
         userHandle,
         authenticator.credentialID,
@@ -239,83 +247,19 @@ const route = app
 
       await db.logAllUsers();
 
-      const user = await db.getUser(userHandle);
+      // firebaseのidTokenを発行して返す
+      const firebaseCustomToken = await getFirebaseToken(userHandle);
 
-      const firebaseCustomToken = await getAuth().createCustomToken(
-        userHandle,
-      );
-
-      return c.json({ verified: true, user, firebaseCustomToken } as const);
+      return c.json({ verified: true, firebaseCustomToken } as const);
     },
   )
   .get(
     "/user_info",
-    validator("header", (value, c) => {
-      const schema = z.object({
-        authorization: z.string(),
-      });
-
-      const parsed = schema.safeParse(value);
-
-      if (!parsed.success) {
-        return c.text("invalid header", 400);
-      }
-
-      if (!parsed.data.authorization.startsWith("Bearer ")) {
-        return c.text("invalid header", 400);
-      }
-
-      return parsed.data;
-    }),
+    validator("header", parse(z.object({ authorization: z.string() }))),
     async (c) => {
-      const { authorization } = c.req.valid("header");
-
-      console.log("jwt:", authorization.slice("Bearer ".length));
-
-      const auth = getAuth();
-      console.log("aaaa", auth.idTokenVerifier.verifySignature);
-      auth.idTokenVerifier.verifySignature = async (jwt) => {
-        console.log(jwt);
-        const [header, _payload, _signature] = decode(jwt);
-        const publicKeys = await getFirebasePublicKeys();
-        if (
-          !header || typeof header !== "object" || !("kid" in header) ||
-          typeof header.kid !== "string"
-        ) {
-          throw new Error("invalid jwt (kid header not found.)");
-        }
-        const publicKey = publicKeys[header.kid];
-        console.log(publicKey);
-        if (!publicKey) {
-          throw new Error("invalid jwt (public key not found.)");
-        }
-
-        console.log(publicKey.split("\n").slice(1, -2));
-
-        const cryptoKey = await crypto.subtle.importKey(
-          "pkcs8",
-          Uint8Array.from(
-            atob(publicKey.split("\n").slice(1, -2).join("")),
-            (c) => c.charCodeAt(0),
-          ),
-          {
-            name: "RSASSA-PKCS1-v1_5",
-            hash: "SHA-256",
-          },
-          true,
-          ["verify"],
-        );
-
-        console.log(cryptoKey);
-
-        await verify(jwt, cryptoKey);
-        // throw new Error("wwwww");
-      };
-      const { uid } = await auth.verifyIdToken(
-        authorization.slice("Bearer ".length),
-      );
-
-      console.log({ uid });
+      const { uid } = await verifyFirebaseToken(c.req.valid("header"), {
+        projectId: FIREBASE_PROJECT_ID,
+      });
 
       const [user, authenticators] = await Promise.all([
         db.getUser(uid),
@@ -334,23 +278,17 @@ const route = app
     },
   );
 
-let publicKeys: Promise<Record<string, string>> | undefined;
-function getFirebasePublicKeys() {
-  return publicKeys ??= getFirebasePublicKeysInternal();
-}
-async function getFirebasePublicKeysInternal(): Promise<
-  Record<string, string>
-> {
-  const res = await fetch(
-    "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
-  );
-  const cacheControl = res.headers.get("cache-control");
-  const maxAge = cacheControl?.match(/max-age=(\d+)/)?.[1];
-  console.log({ maxAge });
-  Deno.unrefTimer(setTimeout(() => {
-    publicKeys = undefined;
-  }, +(maxAge ?? 60) * 1000));
-  return await res.json();
-}
 export const handler: Handler = (req) => app.fetch(req);
-export type AppType = typeof route; // rpcモードを使用するときはこのAppTypeをexportする
+export type AppType = typeof route;
+
+function parse<T>(schema: z.ZodType<T>) {
+  return (value: unknown, c: Context) => {
+    const parsed = schema.safeParse(value);
+
+    if (!parsed.success) {
+      return c.text("invalid header", 400);
+    }
+
+    return parsed.data;
+  };
+}
