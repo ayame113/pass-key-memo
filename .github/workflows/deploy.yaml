@@ -26,6 +26,8 @@ jobs:
         run: deno task build
         env:
           FIREBASE_PROJECT_ID: "__dummy_project_id__"
+          FIREBASE_CLIENT_EMAIL: "__dummy_client_email__"
+          FIREBASE_PRIVATE_KEY: "__dummy_private_key__"
 
       - name: Deploy to Deno Deploy
         uses: denoland/deployctl@v1
