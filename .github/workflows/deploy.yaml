@@ -24,6 +24,8 @@ jobs:
 
       - name: Build
         run: deno task build
+        env:
+          FIREBASE_PROJECT_ID: "__dummy_project_id__"
 
       - name: Deploy to Deno Deploy
         uses: denoland/deployctl@v1
