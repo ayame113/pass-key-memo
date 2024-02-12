@@ -34,3 +34,4 @@ jobs:
         with:
           project: pass-key-memo # the name of the project on Deno Deploy
           entrypoint: main.ts # the entrypoint to deploy
+          exclude: node_modules
