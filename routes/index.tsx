@@ -10,7 +10,14 @@ export default function Home() {
         <IconQuestionMark class="w-4 h-4 m-2 inline-block bg-green-700 text-white rounded-full" />
         このサイトは2文字しか送信できないチャットです。
         パスキーを使ってログインしてください。<br />
-        最新10件の投稿のみが表示されます。
+        最新10件の投稿のみが表示されます。<br />
+        <a
+          href="https://github.com/ayame113/pass-key-memo"
+          target="_blank"
+          class="text-blue-500 underline hover:no-underline"
+        >
+          GitHubリポジトリ
+        </a>
       </section>
       <Chat />
       <hr />

@@ -10,7 +10,7 @@ export function SignUpButton() {
         value={userName.peek()}
         onInput={(e) => userName.value = e.currentTarget.value}
         class="p-2 m-2 border-2 w-5/6 max-w-[300px]"
-        placeholder="user name"
+        placeholder="ユーザー名を入力"
         autofocus
       />
       <button
