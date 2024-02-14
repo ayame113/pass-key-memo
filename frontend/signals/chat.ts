@@ -33,5 +33,6 @@ export function reloadChatHistory() {
 }
 
 if (IS_BROWSER) {
-  setInterval(reloadChatHistory, 60 * 1000);
+  // 20秒間隔で更新
+  setInterval(reloadChatHistory, 20 * 1000);
 }

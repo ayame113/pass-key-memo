@@ -9,8 +9,9 @@ export function SignUpButton() {
         type="text"
         value={userName.peek()}
         onInput={(e) => userName.value = e.currentTarget.value}
-        class="p-2 m-2 border-2"
+        class="p-2 m-2 border-2 w-5/6 max-w-[300px]"
         placeholder="user name"
+        autofocus
       />
       <button
         onClick={() => {

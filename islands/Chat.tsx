@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals";
-import { chatHistory } from "../frontend/signals/chat.ts";
+import { chatHistory, reloadChatHistory } from "../frontend/signals/chat.ts";
 import { postChat } from "../frontend/client.ts";
 import { userInfo } from "../frontend/signals/auth.ts";
 
@@ -22,6 +22,7 @@ export function Chat() {
       timestamp: Date.now(),
     }].slice(-10);
     message.value = "";
+    reloadChatHistory();
   }
 
   if (userInfo.value === undefined) {
