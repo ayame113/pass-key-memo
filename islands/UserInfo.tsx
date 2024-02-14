@@ -14,6 +14,7 @@ export function UserInfo() {
         <h2></h2>
         <SignUpButton />
         <hr />
+        または
         <SignInButton />
       </div>
     );
@@ -21,11 +22,11 @@ export function UserInfo() {
   const { userInfo: { id, name }, authenticators } = userInfo.value;
   return (
     <div>
-      <h2 class="text-xl">登録済み端末</h2>
+      <h2 class="text-xl">登録済みパスキー</h2>
       <section>
-        <span>user id: {id}</span>
+        <span>ユーザーid: {id}</span>
         <br />
-        <span>user name: {name}</span>
+        <span>ユーザー名: {name}</span>
       </section>
       <section class="p-4">
         <table>
@@ -46,6 +47,7 @@ export function UserInfo() {
         </table>
       </section>
       <RegisterAuthenticatorButton />
+      <hr />
       <SignOutButton />
     </div>
   );

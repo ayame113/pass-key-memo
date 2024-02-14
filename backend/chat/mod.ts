@@ -28,6 +28,10 @@ export const chatApp = app
         projectId: FIREBASE_PROJECT_ID,
       });
 
+      if (!/^[あ-ん]{2}$/.test(body.message)) {
+        return c.text("ひらがな2文字で入力してください", 400);
+      }
+
       await db.postChat(uid, body.message);
 
       return c.json({ success: true });

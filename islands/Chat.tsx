@@ -1,5 +1,4 @@
 import { useSignal } from "@preact/signals";
-import { Button } from "../components/Button.tsx";
 import { chatHistory } from "../frontend/signals/chat.ts";
 import { postChat } from "../frontend/client.ts";
 import { userInfo } from "../frontend/signals/auth.ts";
@@ -36,16 +35,17 @@ export function Chat() {
     <div class="my-4">
       <div class="bg-sky-100 py-1 px-4 shadow-inner">
         {chatHistory.value?.map(({ userName, message, timestamp }, i) => (
-          <div class="bg-white my-2 p-2 rounded-lg rounded-bl-none">
+          <div class="bg-white my-2 p-1 rounded-lg rounded-bl-none">
             <div>
-              {userName} ({new Date(timestamp).toLocaleString()}){" "}
+              <span class="font-bold">{userName}</span>{" "}
+              ({new Date(timestamp).toLocaleString()}){" "}
               {chatHistory.value!.length - 1 === i ? "[最新]" : ""}
             </div>
             <div>{message}</div>
           </div>
         ))}
       </div>
-      <div class="bg-white flex">
+      <div class="bg-white flex w-full">
         <input
           type="text"
           value={message.peek()}
@@ -56,17 +56,18 @@ export function Chat() {
               sendMessage();
             }
           }}
-          class="grow p-2 m-2 border-2 bg-slate-50 rounded-full"
-          placeholder="ひらがな2文字で入力"
+          class="block w-20 grow shrink p-1 m-2 border-2 bg-slate-50 focus:bg-white rounded-full"
+          placeholder="ひらがな2文字で入力 [Enterで送信]"
+          autofocus
         />
-        <Button
-          class="w-12"
+        <button
+          class="w-12 block p-2 m-2 border-2 rounded hover:bg-slate-100"
           onClick={() => {
             sendMessage();
           }}
         >
           送信
-        </Button>
+        </button>
       </div>
     </div>
   );

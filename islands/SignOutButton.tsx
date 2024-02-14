@@ -19,7 +19,7 @@ export function SignOutButton() {
             result.value = { success: false, message: "failed to signed out" };
           }
         }}
-        class="p-2 m-2 border-2"
+        class="p-2 m-2 border-2 rounded hover:bg-slate-100"
       >
         ログアウト
       </button>

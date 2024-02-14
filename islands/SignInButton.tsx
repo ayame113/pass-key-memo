@@ -11,7 +11,7 @@ export function SignInButton() {
         onClick={async () => {
           result.value = await signIn();
         }}
-        class="p-2 m-2 border-2"
+        class="p-2 m-2 border-2 rounded hover:bg-slate-100"
       >
         ログイン
       </button>

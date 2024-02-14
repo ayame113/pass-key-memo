@@ -16,7 +16,7 @@ export function SignUpButton() {
         onClick={() => {
           signUp({ userName: userName.value });
         }}
-        class="p-2 m-2 border-2"
+        class="p-2 m-2 border-2 rounded hover:bg-slate-100"
       >
         アカウント作成
       </button>

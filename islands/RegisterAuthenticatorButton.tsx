@@ -11,7 +11,7 @@ export function RegisterAuthenticatorButton() {
         onClick={async () => {
           result.value = await registerAuthenticator();
         }}
-        class="p-2 m-2 border-2"
+        class="p-2 m-2 border-2 rounded hover:bg-slate-100"
       >
         新しいパスキーを登録
       </button>
