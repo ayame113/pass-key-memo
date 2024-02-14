@@ -19,7 +19,7 @@ import {
 import { IS_BROWSER } from "$fresh/runtime.ts";
 
 /** loading user => undefined, authenticated => uid, unauthenticated => null */
-const firebaseUser = signal<string | null | undefined>(undefined);
+export const firebaseUser = signal<string | null | undefined>(undefined);
 onAuthStateChanged(auth, (user) => {
   firebaseUser.value = user?.uid ?? null;
 });

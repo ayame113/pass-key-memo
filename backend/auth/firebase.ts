@@ -3,9 +3,7 @@ import { decodeProtectedHeader, importX509, jwtVerify } from "$jose/index.ts";
 import { getAuth } from "npm:firebase-admin@12.0.0/auth";
 
 export async function getFirebaseToken(uid: string) {
-  return await getAuth().createCustomToken(
-    uid,
-  );
+  return await getAuth().createCustomToken(uid);
 }
 
 export async function verifyFirebaseToken(

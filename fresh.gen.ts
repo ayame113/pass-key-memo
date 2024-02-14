@@ -6,6 +6,7 @@ import * as $_404 from "./routes/_404.tsx";
 import * as $_app from "./routes/_app.tsx";
 import * as $api_path_ from "./routes/api/[...path].ts";
 import * as $index from "./routes/index.tsx";
+import * as $Chat from "./islands/Chat.tsx";
 import * as $RegisterAuthenticatorButton from "./islands/RegisterAuthenticatorButton.tsx";
 import * as $SignInButton from "./islands/SignInButton.tsx";
 import * as $SignOutButton from "./islands/SignOutButton.tsx";
@@ -21,6 +22,7 @@ const manifest = {
     "./routes/index.tsx": $index,
   },
   islands: {
+    "./islands/Chat.tsx": $Chat,
     "./islands/RegisterAuthenticatorButton.tsx": $RegisterAuthenticatorButton,
     "./islands/SignInButton.tsx": $SignInButton,
     "./islands/SignOutButton.tsx": $SignOutButton,

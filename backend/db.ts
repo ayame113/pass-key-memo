@@ -1,4 +1,5 @@
 import { assert } from "$std/assert/assert.ts";
+import { ulid } from "$std/ulid/mod.ts";
 import { isoBase64URL } from "$simplewebauthn/server/helpers.ts";
 import {
   AuthenticatorTransportFuture,
@@ -7,6 +8,7 @@ import {
 
 export class Database {
   #kvPromise = Deno.openKv();
+  /** ユーザー作成 */
   async createUser(userName: string) {
     const kv = await this.#kvPromise;
 
@@ -21,6 +23,7 @@ export class Database {
 
     return newUser;
   }
+  /** ユーザー取得 */
   async getUser(id: string) {
     const kv = await this.#kvPromise;
 
@@ -41,7 +44,7 @@ export class Database {
     return (await Array.fromAsync(entries))
       .map((entry) => entry.value);
   }
-
+  /** ユーザー認証器取得 */
   async getUserAuthenticator(
     userId: string,
     authenticatorId: string,
@@ -57,7 +60,7 @@ export class Database {
 
     return result.value;
   }
-
+  /** ユーザー認証器保存 */
   async saveUserAuthenticator(
     userId: string,
     authenticator: Authenticator,
@@ -85,7 +88,7 @@ export class Database {
       throw new Error(`Failed to save authenticator ${authenticatorId}`);
     }
   }
-
+  /** ユーザー認証器カウンター更新 */
   async updateUserAuthenticatorCounter(
     userId: string,
     credentialID: Uint8Array,
@@ -124,7 +127,7 @@ export class Database {
       }
     }
   }
-
+  /** challengeを保存 */
   async rememberChallenge(challenge: string) {
     const kv = await this.#kvPromise;
 
@@ -141,7 +144,7 @@ export class Database {
 
     return { challengeId, challenge };
   }
-
+  /** challengeを検証 */
   async checkChallenge(challengeId: string, challenge: string) {
     const kv = await this.#kvPromise;
 
@@ -157,6 +160,36 @@ export class Database {
     await kv.delete(["auth", "challenges", challengeId]);
 
     return true;
+  }
+  async postChat(userId: string, message: string) {
+    const kv = await this.#kvPromise;
+
+    const { name: userName } = await this.getUser(userId);
+
+    const chatId = ulid();
+    const chat = {
+      userId,
+      userName,
+      message,
+      timestamp: Date.now(),
+    } satisfies ChatMessage;
+
+    const result = await kv.set(["chat", "messages", chatId], chat);
+    assert(result.ok, "Failed to post chat");
+
+    return chat;
+  }
+  async getChatMessages() {
+    const kv = await this.#kvPromise;
+
+    const entries = kv.list<ChatMessage>({ prefix: ["chat", "messages"] }, {
+      reverse: true,
+      limit: 10,
+    });
+
+    return (await Array.fromAsync(entries))
+      .map((entry) => entry.value)
+      .reverse();
   }
 
   async close() {
@@ -188,6 +221,13 @@ export class Database {
 export type User = {
   id: string;
   name: string;
+};
+
+export type ChatMessage = {
+  userId: string;
+  userName: string;
+  message: string;
+  timestamp: number;
 };
 
 /**

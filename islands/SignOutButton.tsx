@@ -21,7 +21,7 @@ export function SignOutButton() {
         }}
         class="p-2 m-2 border-2"
       >
-        Sign Out
+        ログアウト
       </button>
       <br />
       <span>

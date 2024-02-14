@@ -13,12 +13,12 @@ export function RegisterAuthenticatorButton() {
         }}
         class="p-2 m-2 border-2"
       >
-        Register This Device
+        新しいパスキーを登録
       </button>
       <br />
-      <span>
-        verified: {result.value?.verified.toString()} / message:{" "}
-        {result.value?.message ?? "---"}
+      <span class="text-red-500">
+        {result.value?.verified === false ? "failed to verified. " : null}
+        {result.value?.message ? `${result.value?.message}` : null}
       </span>
     </div>
   );

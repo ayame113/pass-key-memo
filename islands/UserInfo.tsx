@@ -11,8 +11,9 @@ export function UserInfo() {
   if (userInfo.value === null) {
     return (
       <div>
-        not signed in
+        <h2></h2>
         <SignUpButton />
+        <hr />
         <SignInButton />
       </div>
     );
@@ -20,26 +21,30 @@ export function UserInfo() {
   const { userInfo: { id, name }, authenticators } = userInfo.value;
   return (
     <div>
-      <span>user id: {id}</span>
-      <br />
-      <span>user name: {name}</span>
-      <br />
-      <table>
-        <tr class="border-b-2">
-          <th>credentialID</th>
-          <th>credentialBackedUp</th>
-          <th>credentialDeviceType</th>
-          <th>counter</th>
-        </tr>
-        {authenticators.map((authenticator) => (
+      <h2 class="text-xl">登録済み端末</h2>
+      <section>
+        <span>user id: {id}</span>
+        <br />
+        <span>user name: {name}</span>
+      </section>
+      <section class="p-4">
+        <table>
           <tr class="border-b-2">
-            <td>{authenticator.credentialID}</td>
-            <td>{authenticator.credentialBackedUp}</td>
-            <td>{authenticator.credentialDeviceType}</td>
-            <td>{authenticator.counter}</td>
+            <th class="break-all">credentialID</th>
+            <th class="break-all">credentialBackedUp</th>
+            <th class="break-all">credentialDeviceType</th>
+            <th class="break-all">counter</th>
           </tr>
-        ))}
-      </table>
+          {authenticators.map((authenticator) => (
+            <tr class="border-b-2">
+              <td class="break-all">{authenticator.credentialID}</td>
+              <td>{authenticator.credentialBackedUp.toString()}</td>
+              <td>{authenticator.credentialDeviceType}</td>
+              <td>{authenticator.counter}</td>
+            </tr>
+          ))}
+        </table>
+      </section>
       <RegisterAuthenticatorButton />
       <SignOutButton />
     </div>

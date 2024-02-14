@@ -10,6 +10,7 @@ export function SignUpButton() {
         value={userName.peek()}
         onInput={(e) => userName.value = e.currentTarget.value}
         class="p-2 m-2 border-2"
+        placeholder="user name"
       />
       <button
         onClick={() => {
@@ -17,7 +18,7 @@ export function SignUpButton() {
         }}
         class="p-2 m-2 border-2"
       >
-        sign up
+        アカウント作成
       </button>
     </div>
   );
