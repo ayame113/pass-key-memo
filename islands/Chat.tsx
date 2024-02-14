@@ -62,7 +62,7 @@ export function Chat() {
           autofocus
         />
         <button
-          class="w-12 block p-2 m-2 border-2 rounded hover:bg-slate-100"
+          class="w-18 block p-2 m-2 border-2 rounded hover:bg-slate-100"
           onClick={() => {
             sendMessage();
           }}
